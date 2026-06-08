@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { HandTracker } from "@/lib/handTracker";
 import { HandSmoother } from "@/lib/oneEuro";
 import { StrokeStore, type RGB } from "@/lib/strokes";
@@ -18,8 +19,8 @@ const START_COLOR: RGB = [61, 240, 255];
 // thumb-to-palm span, which makes an open/pointing hand look "pinched". A real
 // pinch (thumb at the index tip) reads well under PINCH_ON; any open, pointing
 // or relaxed hand reads above PINCH_OFF. The gap is hysteresis against flicker.
-const PINCH_ON = 0.26; // thumb within 0.26 index-lengths of the tip → pen down
-const PINCH_OFF = 0.36; // beyond 0.36 → pen up (your open hand reads ~0.42)
+const PINCH_ON = 0.22; // thumb within 0.26 index-lengths of the tip → pen down
+const PINCH_OFF = 0.23; // beyond 0.36 → pen up (your open hand reads ~0.42)
 const ERASE_R = 28;
 const UI_DWELL = 600; // ms a fingertip must rest on a button to fire it
 const GRACE = 5; // frames a stroke survives a tracking dropout
@@ -67,7 +68,6 @@ export default function AirDrawExperience() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hintRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const debugRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Engine | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [muted, setMuted] = useState(false);
@@ -266,7 +266,6 @@ export default function AirDrawExperience() {
         const cursors: Cursor[] = [];
         let dwellAction: string | null = null;
         let dwellProgress = 0;
-        let dbg = "";
 
         for (let s = 0; s < 2; s++) {
           const st = e.handState[s];
@@ -290,7 +289,6 @@ export default function AirDrawExperience() {
           if (!st.pinching && pv < PINCH_ON) st.pinching = true;
           else if (st.pinching && pv > PINCH_OFF) st.pinching = false;
           const pinchDown = !was && st.pinching;
-          dbg += `${s === 0 ? "L" : "R"} ${pv.toFixed(2)} ${st.pinching ? "■DRAW" : "·up"}   `;
 
           const nib = hand.points[INDEX_TIP];
           const fs = fingerStates(hand.points);
@@ -386,7 +384,6 @@ export default function AirDrawExperience() {
           hintRef.current.style.opacity =
             e.store.committed.length === 0 && !e.wheelOpen ? "0.8" : "0";
         }
-        if (debugRef.current) debugRef.current.textContent = dbg || "no hand";
       };
       e.raf = requestAnimationFrame(frame);
     } catch (err) {
@@ -419,15 +416,7 @@ export default function AirDrawExperience() {
         muted
         playsInline
         className="absolute inset-0 h-full w-full object-cover"
-        style={{ transform: "scaleX(-1)", filter: "brightness(0.5) saturate(1.05)" }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse at center, transparent 45%, rgba(4,5,10,0.6) 100%)",
-        }}
+        style={{ transform: "scaleX(-1)" }}
       />
       <canvas
         ref={canvasRef}
@@ -435,13 +424,18 @@ export default function AirDrawExperience() {
         style={{ transform: "scaleX(-1)" }}
       />
 
-      {/* HUD — wordmark */}
-      <div className="pointer-events-none absolute left-5 top-4 z-20 select-none">
-        <div className="font-mono-hud flex items-center gap-1.5 text-lg font-bold tracking-[0.06em] text-[#eaf6ff] drop-shadow-[0_0_16px_rgba(61,240,255,0.4)]">
-          AIR
-          <span className="inline-block h-2 w-2 rounded-full bg-[#3df0ff] shadow-[0_0_12px_4px_rgba(61,240,255,0.7)]" />
-          DRAW
-        </div>
+      {/* HUD — logo */}
+      <div className="pointer-events-none absolute left-4 top-3 z-20 select-none">
+        <Image
+          src="/logo.png"
+          alt="Air Draw"
+          width={1536}
+          height={1024}
+          priority
+          sizes="148px"
+          className="h-auto w-[124px] drop-shadow-[0_0_18px_rgba(61,240,255,0.3)] sm:w-[148px]"
+          draggable={false}
+        />
       </div>
 
       <a
@@ -482,14 +476,6 @@ export default function AirDrawExperience() {
           ✌&nbsp;TWO&nbsp;FINGERS&nbsp;ERASE&nbsp;·&nbsp;HOLD&nbsp;A&nbsp;BUTTON&nbsp;TO&nbsp;PRESS
         </span>
       </div>
-
-      {/* TEMP pinch calibration readout — value/base + state per hand */}
-      {status === "running" && (
-        <div
-          ref={debugRef}
-          className="font-mono-hud pointer-events-none absolute bottom-6 right-4 z-40 select-none rounded-md bg-black/55 px-2.5 py-1 text-[11px] tracking-wider text-[#3df0ff]/90"
-        />
-      )}
 
       <Intro status={status} onBegin={begin} />
     </div>
